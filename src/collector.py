@@ -13,10 +13,21 @@ from client import ClashClient, ClashAPIError
 import store
 
 
+def _write(rows: list) -> int:
+    """Blocking DB writes; runs in a worker thread so the server stays responsive."""
+    conn = store.connect()
+    try:
+        new = sum(store.save_battle(conn, *r) for r in rows)
+        conn.commit()
+        return new
+    finally:
+        conn.close()
+
+
 async def collect(client: ClashClient, top: int = 200, season: str | None = None) -> dict:
     players = await client.top_players(limit=top, season=season)
-    conn = store.connect()
     sem = asyncio.Semaphore(5)
+    rows: list = []
     stats = {"players": len(players), "new_battles": 0, "failed": 0}
 
     async def one(p):
@@ -32,13 +43,10 @@ async def collect(client: ClashClient, top: int = 200, season: str | None = None
             me, opp = b["team"][0], b["opponent"][0]
             if me["crowns"] == opp["crowns"] or len(me.get("cards", [])) != 8:
                 continue  # skip draws / malformed
-            if store.save_battle(conn, p["tag"], b["battleTime"], me["cards"],
-                                 me["crowns"] > opp["crowns"]):
-                stats["new_battles"] += 1
+            rows.append((p["tag"], b["battleTime"], me["cards"], me["crowns"] > opp["crowns"]))
 
     await asyncio.gather(*(one(p) for p in players))
-    conn.commit()
-    conn.close()
+    stats["new_battles"] = await asyncio.to_thread(_write, rows)
     return stats
 
 

@@ -9,6 +9,6 @@ jobs:
     steps:
       - name: Trigger collection (also wakes the sleeping free instance)
         run: |
-          curl --fail --retry 3 --retry-delay 30 --max-time 300 -X POST \
+          curl --fail --max-time 900 -X POST \
             -H "Authorization: Bearer ${{ secrets.COLLECT_TOKEN }}" \
             "${{ secrets.MCP_BASE_URL }}/collect"

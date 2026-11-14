@@ -1,6 +1,7 @@
 """Clash Royale MCP server: suggests the best deck for your card levels."""
 from __future__ import annotations
 
+import asyncio
 import os
 
 from mcp.server.mcpserver import MCPServer
@@ -21,6 +22,14 @@ mcp = MCPServer(
 )
 
 _client: ClashClient | None = None
+
+
+def _deck_stats(season, min_games):
+    conn = store.connect()
+    try:
+        return store.deck_stats(conn, season, min_games)
+    finally:
+        conn.close()
 
 
 def resolve_tag(tag: str | None) -> str:
@@ -104,11 +113,7 @@ async def recommend_decks(
     """Rank meta decks for THIS player: meta win rate adjusted by how far the
     player's card levels are below max, excluding decks with cards they don't own.
     Omit player_tag to use PLAYER_TAG from .env."""
-    conn = store.connect()
-    try:
-        decks = store.deck_stats(conn, season, min_games)
-    finally:
-        conn.close()
+    decks = await asyncio.to_thread(_deck_stats, season, min_games)
     if not decks:
         return {"error": "No meta data yet. Run collect_meta first (or lower min_games)."}
     try:
