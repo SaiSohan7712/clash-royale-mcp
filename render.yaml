@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: clash-royale-mcp
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: CLASH_ROYALE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: CLASH_API_BASE
+        value: https://proxy.royaleapi.dev/v1
+      - key: COLLECT_TOKEN
+        generateValue: true
